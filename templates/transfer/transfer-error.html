@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Location Check Failed</title>
+    <link rel="stylesheet" href="assets/css/style2.css">
+</head>
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: Arial, sans-serif;
+        background-color: #0a1b2e;
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    .error-container {
+        text-align: center;
+        animation: fadeIn 1.5s ease-in-out;
+    }
+    
+    .error-icon {
+        width: 100px;
+        height: 100px;
+        background-color: #b22222;
+        border-radius: 50%;
+        margin: 0 auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        animation: blink 1.5s infinite, shadowPulse 2s infinite;
+    }
+    
+    .error-icon span {
+        color: white;
+        font-size: 50px;
+        font-weight: bold;
+    }
+    
+    .error-title {
+        margin-top: 20px;
+        font-size: 28px;
+        font-weight: bold;
+        color: #ffffff;
+    }
+    
+    .error-message {
+        margin-top: 10px;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #c0c0c0;
+    }
+    
+    /* Blinking effect */
+    @keyframes blink {
+        0%, 100% {
+            background-color: #b22222;
+        }
+        50% {
+            background-color: #ff4c4c;
+        }
+    }
+    
+    /* Pulsating shadow effect */
+    @keyframes shadowPulse {
+        0%, 100% {
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 76, 76, 0.5);
+        }
+        50% {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 76, 76, 0.9);
+        }
+    }
+    
+    /* Fade-in effect */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+</style>
+<body>
+    <div class="error-container">
+        <div class="error-icon">
+            <span>!</span>
+        </div>
+        <h1 class="error-title">Suspicious Activity Detected</h1>
+        <p class="error-message">
+            For security reasons, this transaction<br>
+           has been blocked as it required further review 
+        </p>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

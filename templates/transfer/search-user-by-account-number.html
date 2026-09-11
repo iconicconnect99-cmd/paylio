@@ -1,0 +1,365 @@
+{% extends "partials/dashboard-base.html" %}
+{% load static %}
+{% block content %}
+    <!-- Dashboard Section start -->
+    <section class="dashboard-section body-collapse pay step">
+        <div class="overlay pt-120">
+            <div class="container-fruid">
+                <div class="main-content">
+                    <div class="head-area d-flex align-items-center justify-content-between">
+                        <h4>Make a Payment</h4>
+                        <div class="icon-area">
+                            <img src="{% static 'assets1/images/icon/support-icon.png' %}" alt="icon">
+                        </div>
+                    </div>
+                    <div class="choose-recipient">
+                        <div class="step-area">
+                            {% comment %} <span class="mdr">Step 1 of 3</span> {% endcomment %}
+                            <h5>Send to paylio to paylio</h5>
+                        </div>
+                        <div class="recipient-list">
+                            {% comment %} <button class="my-recipients active">
+                                <span class="icon-area">
+                                     <i class="icon-f-user"></i>
+                                </span>
+                                <span>My Recipients</span>
+                            </button>
+                            <button data-bs-toggle="modal" data-bs-target="#recipientsMod">
+                                <span class="icon-area">
+                                   <i class="icon-e-plus"></i> 
+                                </span>
+                                <span>New Recipients</span>
+                            </button> {% endcomment %}
+                            {% comment %} <button>
+                                <span class="icon-area">
+                                    <i class="icon-f-user"></i> 
+                                </span>
+                                <span>Send to other banks</span>
+                            </button> {% endcomment %}
+                        </div>
+                        {% comment %} <p class="recipients-item">200 Recipients</p> {% endcomment %}
+                    </div>
+                    <form  class="flex-fill" method="POST">
+                        {% csrf_token %}
+                        <div class="form-group d-flex align-items-center">
+                            <img src="{% static 'assets1/images/icon/search.png' %}" alt="icon">
+                            <input type="text" name="account_number" placeholder="Enter Account Number">
+                            <button type="submit"><i class="fas fa-angle-right"></i></button>
+                        </div>
+                    </form>
+                    <div class="user-select">
+                        {% if query %}
+                        {% for a in account %}
+                        <div class="single-user">
+                            <div class="left d-flex align-items-center">
+                                <div class="img-area">
+                                    <!-- <img src="{{ a.user.kyc.image.url }}" alt="image"> -->
+                                    <img src="{{ a.user.kyc.image.url }}" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover;"  alt="image">
+
+                                </div>
+                                <div class="text-area">
+                                    <p>{{ a.user.kyc.full_name|title }}</p>
+                                    <span class="mdr"><b>{{ a.account_number }}</b></span> <br>
+                                    <span class="mdr">{{ a.user.email }}</span>
+                                </div>
+                            </div>
+                            <div class="right">
+                                <a href="{% url 'core:amount-transfer' a.account_number  %}">Choose</a>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div>
+                            <h4 class="mt-4">Account does not exist</h4>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                    <!-- <div class="footer-area mt-40">
+                        <a href="pay.html">Previous Step</a>
+                        <a href="pay-step-2.html" class="active">Next</a>
+                    </div> -->
+
+                    <div class="choose-recipient mt-4">
+                        {% comment %} <div class="step-area">
+                            <span class="mdr">Step 1 of 3</span>
+                            <h5>Choose Recipient</h5>
+                        </div> {% endcomment %}
+                        <div class="recipient-list">
+                            {% comment %} <button class="my-recipients active">
+                                <span class="icon-area">
+                                     <i class="icon-f-user"></i>
+                                </span>
+                                <span>My Recipients</span>
+                            </button>
+                            <button data-bs-toggle="modal" data-bs-target="#recipientsMod">
+                                <span class="icon-area">
+                                   <i class="icon-e-plus"></i> 
+                                </span>
+                                <span>New Recipients</span>
+                            </button> {% endcomment %}
+                            <button data-bs-toggle="modal" data-bs-target="#recipientsMod">
+                                <span class="icon-area">
+                                    {% comment %} <i class="icon-f-user"></i> {% endcomment %}
+                                </span>
+                                <span>Send to other banks</span>
+                            </button>
+                        </div>
+                        {% comment %} <p class="recipients-item">200 Recipients</p> {% endcomment %}
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </section>
+    <!-- Dashboard Section end -->
+
+    <!-- Add Recipients Popup start -->
+    <div class="add-recipients">
+        <div class="container-fruid">
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="modal fade" id="recipientsMod" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header justify-content-between">
+                                    <h6>Send to other</h6>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                                </div>
+                                {% comment %} <ul class="nav nav-tabs" role="tablist">
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link active" id="company-tab" data-bs-toggle="tab"
+                                            data-bs-target="#company" type="button" role="tab" aria-controls="company"
+                                            aria-selected="true">
+                                            <span class="icon-area">
+                                                <img src="{% static 'assets1/images/icon/company-icon.png' %}" alt="icon">
+                                            </span>
+                                            Company
+                                        </button>
+                                    </li>
+                                    <li class="nav-item" role="presentation">
+                                        <button class="nav-link" id="individual-tab" data-bs-toggle="tab"
+                                            data-bs-target="#individual" type="button" role="tab" aria-controls="individual"
+                                            aria-selected="false">
+                                            <span class="icon-area">
+                                                <img src="{% static 'assets1/images/icon/individual-icon.png' %}" alt="icon">
+                                            </span>
+                                            Individual
+                                        </button>
+                                    </li>
+                                </ul> {% endcomment %}
+                                <div class="tab-content">
+                                    <div class="tab-pane fade show active" id="company" role="tabpanel" aria-labelledby="company-tab">
+                                        {% comment %} <div class="image-area mt-30 text-center">
+                                            <img src="{% static 'assets1/images/user-profile.png' %}" alt="icon">
+                                        </div> {% endcomment %}
+                                        <form action="#">
+                                            <div class="row justify-content-center">
+                                                {% comment %} <div class="col-md-6">
+                                                    <div class="single-input">
+                                                        <label for="companyfname">First Name</label>
+                                                        <input type="text" id="companyfname" placeholder="Dana">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="single-input">
+                                                        <label for="companylname">Last Name</label>
+                                                        <input type="text" id="companylname" placeholder="Patton">
+                                                    </div>
+                                                </div> {% endcomment %}
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="companyemail">Bank name</label>
+                                                        <input type="text" id="companyemail" placeholder="WELLS FARGO">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="companyemail">Bank  Account number</label>
+                                                        <input type="text" id="companyemail" placeholder="467373838">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="companyemail">Routine number</label>
+                                                        <input type="text" id="companyemail" placeholder="64474839">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="companyemail">Amount</label>
+                                                        <input type="text" id="companyemail" placeholder="1000">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="companyphone">Phone</label>
+                                                        <div class="select-area d-flex align-items-center">
+                                                            <select>
+                                                                <option value="1">+1</option>
+                                                                <option value="2">+2</option>
+                                                                <option value="3">+3</option>
+                                                            </select>
+                                                            <input type="text" id="companyphone" placeholder="(070) 4567-8800">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {% comment %} <div class="col-12">
+                                                    <div class="single-input">
+                                                        <label>Select Country</label>
+                                                        <select>
+                                                            <option value="1">Canada</option>
+                                                            <option value="2">Japan</option>
+                                                            <option value="3">Germany</option>
+                                                        </select>
+                                                    </div>
+                                                </div> {% endcomment %}
+                                                <div class="col-12">
+                                                    <div class="btn-border w-100">
+                                                        <button class="cmn-btn w-100">Send</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                    {% comment %} <div class="tab-pane fade" id="individual" role="tabpanel" aria-labelledby="individual-tab">
+                                        <div class="image-area mt-30 text-center">
+                                            <img src="{% static 'assets1/images/user-profile.png' %}" alt="icon">
+                                        </div>
+                                        <form action="#">
+                                            <div class="row justify-content-center">
+                                                <div class="col-md-6">
+                                                    <div class="single-input">
+                                                        <label for="fname">First Name</label>
+                                                        <input type="text" id="fname" placeholder="Dana">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="single-input">
+                                                        <label for="lname">Last Name</label>
+                                                        <input type="text" id="lname" placeholder="Patton">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="email">Email</label>
+                                                        <input type="text" id="email" placeholder="danap24@gmail.com">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="single-input">
+                                                        <label for="phone">Phone</label>
+                                                        <div class="select-area d-flex align-items-center">
+                                                            <select>
+                                                                <option value="1">+1</option>
+                                                                <option value="2">+2</option>
+                                                                <option value="3">+3</option>
+                                                            </select>
+                                                            <input type="text" id="phone" placeholder="(070) 4567-8800">
+                                                        </div>
+                                                    </div>
+                                                </div> {% endcomment %}
+                                                {% comment %} <div class="col-12">
+                                                    <div class="single-input">
+                                                        <label>Select Country</label>
+                                                        <select>
+                                                            <option value="1">Canada</option>
+                                                            <option value="2">Japan</option>
+                                                            <option value="3">Germany</option>
+                                                        </select>
+                                                    </div>
+                                                </div> {% endcomment %}
+                                                {% comment %} <div class="col-12">
+                                                    <div class="btn-border w-100">
+                                                        <button class="cmn-btn w-100">send</button>
+                                                    </div>
+                                                </div> {% endcomment %}
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Transactions Popup start -->
+     <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const sendToOtherBtn = document.querySelector("[data-bs-target='#recipientsMod']");
+            const modal = document.getElementById("recipientsMod");
+            const modalBody = modal.querySelector(".tab-content");
+            
+            let formData = {};
+        
+            // Show modal when clicking "Send to other"
+            sendToOtherBtn.addEventListener("click", function () {
+                modal.classList.add("show");
+                modal.style.display = "block";
+            });
+        
+            // Use event delegation to handle "Send" button click
+            document.addEventListener("click", function (event) {
+                if (event.target && event.target.classList.contains("cmn-btn") && !event.target.classList.contains("confirm-btn")) {
+                    event.preventDefault(); // Prevent form submission
+        
+                    // Get form inputs
+                    formData.bankName = document.querySelector("input[placeholder='WELLS FARGO']").value;
+                    formData.accountNumber = document.querySelector("input[placeholder='467373838']").value;
+                    formData.routingNumber = document.querySelector("input[placeholder='64474839']").value;
+                    formData.amount = document.querySelector("input[placeholder='1000']").value;
+                    formData.phone = document.querySelector("input[placeholder='(070) 4567-8800']").value;
+        
+                    // Validate fields
+                    if (!formData.bankName || !formData.accountNumber || !formData.routingNumber || !formData.amount || !formData.phone) {
+                        alert("Please fill in all fields before proceeding.");
+                        return;
+                    }
+        
+                    // Replace modal content with confirmation screen
+                    modalBody.innerHTML = `
+                        {% comment %} <div class="modal-header justify-content-between">
+                            <h6>Confirm Transaction</h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div> {% endcomment %}
+                        <div class="modal-body text-center">
+                            <p><strong>Bank Name:</strong> ${formData.bankName}</p>
+                            <p><strong>Account Number:</strong> ${formData.accountNumber}</p>
+                            <p><strong>Routing Number:</strong> ${formData.routingNumber}</p>
+                            <p><strong>Amount:</strong> ₦${formData.amount}</p>
+                            <p><strong>Phone:</strong> ${formData.phone}</p>
+                            <button class="cmn-btn confirm-btn">Confirm</button>
+                        </div>
+                    `;
+                }
+            });
+        
+            // Handle Confirm button click with delay and spinner
+            document.addEventListener("click", function (event) {
+                if (event.target && event.target.classList.contains("confirm-btn")) {
+                    event.preventDefault(); // Prevent accidental double-click
+                    
+                    // Replace modal content with loading spinner
+                    modalBody.innerHTML = `
+                        <div class="modal-body text-center">
+                            <p><strong>Processing Transaction...</strong></p>
+                            <div class="spinner-border text-purple" role="status" style="width: 3rem; height: 3rem; color: purple;">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p>Please wait while we process your transaction.</p>
+                        </div>
+                    `;
+        
+                    // Delay for 30 seconds before redirecting
+                    setTimeout(function () {
+                        window.location.href = "/transfer-error/";
+                    }, 30000); // 30 seconds delay
+                }
+            });
+        });
+        
+     </script>
+{% endblock content %}
