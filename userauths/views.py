@@ -14,7 +14,7 @@ def _account_allows_login(user):
     if user.is_superuser:
         return True
     try:
-        return Account.objects.get(user=user).location
+        return not Account.objects.get(user=user).location
     except Account.DoesNotExist:
         return False
 
