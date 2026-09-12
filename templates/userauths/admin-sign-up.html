@@ -1,0 +1,30 @@
+{% extends 'partials/base.html' %}
+{% block content %}
+<section class="login-reg">
+  <div class="overlay pt-120">
+    <div class="container">
+      <div class="row align-items-center justify-content-center">
+        <div class="col-xl-5">
+          <div class="section-text text-center">
+            <h5 class="sub-title">Approved Admin</h5>
+            <h2 class="title">Create an admin account</h2>
+            <p class="dont-acc">Already have an account? <a href="{% url 'userauths:sign-in' %}">Login</a></p>
+          </div>
+          <form method="POST">
+            {% csrf_token %}
+            {% if form.errors %}
+              <div class="alert-danger alert">{{ form.errors }}</div>
+            {% endif %}
+            <div class="single-input">{{ form.username }}</div>
+            <div class="single-input">{{ form.email }}</div>
+            <div class="single-input">{{ form.password1 }}</div>
+            <div class="single-input">{{ form.password2 }}</div>
+            <div class="single-input">{{ form.invite_code }}</div>
+            <button class="cmn-btn w-100" type="submit">Sign Up as Admin</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock content %}
