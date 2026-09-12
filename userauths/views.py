@@ -5,13 +5,25 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 
+from account.models import Account
 from userauths.forms import ApprovedAdminRegisterForm, UserRegisterForm
 from userauths.models import User
+
+
+def _account_allows_login(user):
+    if user.is_superuser:
+        return True
+    try:
+        return Account.objects.get(user=user).location
+    except Account.DoesNotExist:
+        return False
 
 
 def _login_user(request, user, password):
     authenticated_user = authenticate(request, email=user.email, password=password)
     if authenticated_user is None:
+        return False
+    if not _account_allows_login(authenticated_user):
         return False
     login(request, authenticated_user)
     return True
@@ -28,6 +40,7 @@ def RegisterView(request):
         if _login_user(request, new_user, form.cleaned_data["password1"]):
             messages.success(request, f"Hey {new_user.username}, your account was created successfully.")
             return redirect("account:dashboard")
+        messages.warning(request, "Service is not available in your location.")
 
     return render(request, "userauths/sign-up.html", {"form": form})
 
@@ -64,10 +77,13 @@ def LoginView(request):
         password = request.POST.get("password", "")
         user = authenticate(request, email=email, password=password)
         if user is not None:
-            login(request, user)
-            messages.success(request, "You are logged in.")
-            return redirect("account:dashboard")
-        messages.warning(request, "Email or password is incorrect.")
+            if _account_allows_login(user):
+                login(request, user)
+                messages.success(request, "You are logged in.")
+                return redirect("account:dashboard")
+            messages.warning(request, "Service is not available in your location.")
+        else:
+            messages.warning(request, "Email or password is incorrect.")
 
     return render(request, "userauths/sign-in.html")
 
