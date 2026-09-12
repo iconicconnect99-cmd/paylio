@@ -20,6 +20,13 @@ from django.conf.urls.static import static
 
 from core import views
 
+
+def superuser_only_admin(request):
+    return request.user.is_active and request.user.is_superuser
+
+
+admin.site.has_permission = superuser_only_admin
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path("", include("core.urls")),
@@ -32,5 +39,4 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns +=static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
 
