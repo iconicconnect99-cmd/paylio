@@ -48,3 +48,4 @@ django-import-export
 shortuuid
 django-shortuuidfield
 gunicorn
+reportlab
