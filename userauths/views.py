@@ -68,7 +68,7 @@ def RegisterView(request):
                     login(
                         request,
                         new_user,
-                        backend="django.contrib.auth.backends.ModelBackend",
+                        backend="userauths.backends.SupabaseBackend",
                     )
                     messages.success(
                         request,
@@ -117,7 +117,7 @@ def AdminRegisterView(request):
                     login(
                         request,
                         new_user,
-                        backend="django.contrib.auth.backends.ModelBackend",
+                        backend="userauths.backends.SupabaseBackend",
                     )
                     messages.success(request, "Your approved admin account was created.")
                     return redirect("admin:index")
@@ -157,7 +157,7 @@ def LoginView(request):
                 login(
                     request,
                     user,
-                    backend="django.contrib.auth.backends.ModelBackend",
+                    backend="userauths.backends.SupabaseBackend",
                 )
                 messages.success(request, "You are logged in.")
                 return redirect("account:dashboard")
@@ -216,7 +216,7 @@ def AdminLoginView(request):
                 login(
                     request,
                     user,
-                    backend="django.contrib.auth.backends.ModelBackend",
+                    backend="userauths.backends.SupabaseBackend",
                 )
                 return redirect(next_url)
         except SupabaseAuthError:
