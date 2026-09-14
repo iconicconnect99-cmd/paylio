@@ -112,18 +112,9 @@ def AdminRegisterView(request):
                 new_user.is_approved_admin = True
                 new_user.save(update_fields=["is_staff", "is_approved_admin"])
                 _grant_admin_permissions(new_user)
-                if supabase_user.get("access_token"):
-                    request.session["supabase_access_token"] = supabase_user["access_token"]
-                    login(
-                        request,
-                        new_user,
-                        backend="userauths.backends.SupabaseBackend",
-                    )
-                    messages.success(request, "Your approved admin account was created.")
-                    return redirect("admin:index")
                 messages.success(
                     request,
-                    "Admin account created. Confirm your email, then log in at /admin/.",
+                    "Admin account created. Log in through the admin portal.",
                 )
                 return redirect("admin:login")
             except SupabaseAuthError as exc:
@@ -149,6 +140,9 @@ def LoginView(request):
                 supabase_user.get("user_metadata", {}).get("username")
                 or email.split("@", 1)[0],
             )
+            if user.is_staff and user.is_approved_admin:
+                messages.error(request, "Use the admin portal to sign in with this account.")
+                return render(request, "userauths/sign-in.html")
             if _account_allows_login(user):
                 request.session["supabase_access_token"] = auth_response.get(
                     "access_token",
