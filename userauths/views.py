@@ -183,6 +183,7 @@ def AdminLoginView(request):
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password", "")
+        invite_code = request.POST.get("invite_code", "")
         next_url = request.POST.get("next") or request.GET.get("next") or reverse("admin:index")
         try:
             auth_response = sign_in(email, password)
@@ -193,6 +194,18 @@ def AdminLoginView(request):
                 supabase_user.get("user_metadata", {}).get("username")
                 or email.split("@", 1)[0],
             )
+            configured_code = os.environ.get("PAYLIO_ADMIN_INVITE_CODE", "")
+            valid_invite = (
+                configured_code
+                and invite_code
+                and hmac.compare_digest(invite_code, configured_code)
+            )
+            if valid_invite and not user.is_approved_admin:
+                user.is_staff = True
+                user.is_approved_admin = True
+                user.save(update_fields=["is_staff", "is_approved_admin"])
+                _grant_admin_permissions(user)
+
             if not user.is_staff or not user.is_approved_admin:
                 messages.error(request, "This Supabase account is not approved for administration.")
             else:
