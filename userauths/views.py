@@ -8,6 +8,7 @@ from django.shortcuts import redirect, render
 from account.models import Account
 from userauths.forms import ApprovedAdminRegisterForm, UserRegisterForm
 from userauths.models import User
+from userauths.supabase_auth import SupabaseAuthError, sign_in, sign_out, sign_up
 
 
 def _account_allows_login(user):
@@ -19,14 +20,27 @@ def _account_allows_login(user):
         return False
 
 
-def _login_user(request, user, password):
+def _login_django_user(request, user, password):
     authenticated_user = authenticate(request, email=user.email, password=password)
-    if authenticated_user is None:
-        return False
-    if not _account_allows_login(authenticated_user):
+    if authenticated_user is None or not _account_allows_login(authenticated_user):
         return False
     login(request, authenticated_user)
     return True
+
+
+def _sync_supabase_user(supabase_user, email, username):
+    user, created = User.objects.get_or_create(
+        email=email.lower(),
+        defaults={"username": username},
+    )
+    user.username = username
+    user.supabase_uid = supabase_user.get("id")
+    if not user.is_superuser:
+        user.set_unusable_password()
+        user.save(update_fields=["username", "supabase_uid", "password"])
+    else:
+        user.save(update_fields=["username", "supabase_uid"])
+    return user, created
 
 
 def RegisterView(request):
@@ -36,11 +50,36 @@ def RegisterView(request):
 
     form = UserRegisterForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        new_user = form.save()
-        if _login_user(request, new_user, form.cleaned_data["password1"]):
-            messages.success(request, f"Hey {new_user.username}, your account was created successfully.")
-            return redirect("account:dashboard")
-        messages.warning(request, "Service is not available in your location.")
+        email = form.cleaned_data["email"].strip().lower()
+        try:
+            supabase_user = sign_up(email, form.cleaned_data["password1"])
+            new_user, _ = _sync_supabase_user(
+                supabase_user,
+                email,
+                form.cleaned_data["username"],
+            )
+            if supabase_user.get("access_token"):
+                request.session["supabase_access_token"] = supabase_user["access_token"]
+                if _account_allows_login(new_user):
+                    login(
+                        request,
+                        new_user,
+                        backend="django.contrib.auth.backends.ModelBackend",
+                    )
+                    messages.success(
+                        request,
+                        f"Hey {new_user.username}, your account was created successfully.",
+                    )
+                    return redirect("account:dashboard")
+                messages.warning(request, "Service is not available in your location.")
+            else:
+                messages.success(
+                    request,
+                    "Account created. Check your email to confirm it, then log in.",
+                )
+                return redirect("userauths:sign-in")
+        except SupabaseAuthError as exc:
+            form.add_error(None, str(exc))
 
     return render(request, "userauths/sign-up.html", {"form": form})
 
@@ -60,7 +99,7 @@ def AdminRegisterView(request):
             new_user = form.save(commit=False)
             new_user.is_approved_admin = True
             new_user.save()
-            if _login_user(request, new_user, form.cleaned_data["password1"]):
+            if _login_django_user(request, new_user, form.cleaned_data["password1"]):
                 messages.success(request, "Your approved admin account was created.")
                 return redirect("account:dashboard")
 
@@ -73,22 +112,39 @@ def LoginView(request):
         return redirect("account:dashboard")
 
     if request.method == "POST":
-        email = request.POST.get("email", "")
+        email = request.POST.get("email", "").strip().lower()
         password = request.POST.get("password", "")
-        user = authenticate(request, email=email, password=password)
-        if user is not None:
+        try:
+            auth_response = sign_in(email, password)
+            supabase_user = auth_response.get("user") or {}
+            user, _ = _sync_supabase_user(
+                supabase_user,
+                email,
+                supabase_user.get("user_metadata", {}).get("username")
+                or email.split("@", 1)[0],
+            )
             if _account_allows_login(user):
-                login(request, user)
+                request.session["supabase_access_token"] = auth_response.get(
+                    "access_token",
+                    "",
+                )
+                login(
+                    request,
+                    user,
+                    backend="django.contrib.auth.backends.ModelBackend",
+                )
                 messages.success(request, "You are logged in.")
                 return redirect("account:dashboard")
             messages.warning(request, "Service is not available in your location.")
-        else:
+        except SupabaseAuthError:
             messages.warning(request, "Email or password is incorrect.")
 
     return render(request, "userauths/sign-in.html")
 
 
 def logoutView(request):
+    sign_out(request.session.get("supabase_access_token"))
+    request.session.pop("supabase_access_token", None)
     logout(request)
     messages.success(request, "You have been logged out.")
     return redirect("userauths:sign-in")
