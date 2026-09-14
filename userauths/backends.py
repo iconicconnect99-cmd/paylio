@@ -1,9 +1,10 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.backends import ModelBackend
 
 from userauths.supabase_auth import SupabaseAuthError, sign_in
 
 
-class SupabaseBackend:
+class SupabaseBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, email=None, **kwargs):
         identifier = (email or username or "").strip().lower()
         if not identifier or not password:
