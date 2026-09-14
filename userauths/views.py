@@ -156,8 +156,8 @@ def LoginView(request):
                 messages.success(request, "You are logged in.")
                 return redirect("account:dashboard")
             messages.warning(request, "Service is not available in your location.")
-        except SupabaseAuthError:
-            messages.warning(request, "Email or password is incorrect.")
+        except SupabaseAuthError as exc:
+            messages.warning(request, str(exc))
 
     return render(request, "userauths/sign-in.html")
 

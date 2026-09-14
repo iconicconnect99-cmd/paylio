@@ -27,7 +27,13 @@ def _request(path, payload):
 
     if not response.ok:
         try:
-            detail = response.json().get("msg") or response.json().get("error_description")
+            body = response.json()
+            detail = (
+                body.get("msg")
+                or body.get("error_description")
+                or body.get("message")
+                or body.get("error")
+            )
         except ValueError:
             detail = None
         raise SupabaseAuthError(detail or "Supabase Auth rejected the request.")
