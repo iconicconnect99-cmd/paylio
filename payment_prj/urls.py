@@ -19,12 +19,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 from core import views
+from userauths.views import AdminLoginView
 
 
 def approved_admin_only(request):
     return request.user.is_active and request.user.is_staff and request.user.is_approved_admin
 
 admin.site.has_permission = approved_admin_only
+admin.site.login = AdminLoginView
 
 urlpatterns = [
     path('admin/', admin.site.urls),

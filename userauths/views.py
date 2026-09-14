@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import Permission
 from django.shortcuts import redirect, render
+from django.urls import reverse
 
 from account.models import Account
 from userauths.forms import ApprovedAdminRegisterForm, UserRegisterForm
@@ -173,3 +174,43 @@ def logoutView(request):
     logout(request)
     messages.success(request, "You have been logged out.")
     return redirect("userauths:sign-in")
+
+
+def AdminLoginView(request):
+    if request.user.is_authenticated and request.user.is_staff and request.user.is_approved_admin:
+        return redirect(request.GET.get("next") or "admin:index")
+
+    if request.method == "POST":
+        email = request.POST.get("email", "").strip().lower()
+        password = request.POST.get("password", "")
+        next_url = request.POST.get("next") or request.GET.get("next") or reverse("admin:index")
+        try:
+            auth_response = sign_in(email, password)
+            supabase_user = auth_response.get("user") or {}
+            user, _ = _sync_supabase_user(
+                supabase_user,
+                email,
+                supabase_user.get("user_metadata", {}).get("username")
+                or email.split("@", 1)[0],
+            )
+            if not user.is_staff or not user.is_approved_admin:
+                messages.error(request, "This Supabase account is not approved for administration.")
+            else:
+                request.session["supabase_access_token"] = auth_response.get(
+                    "access_token",
+                    "",
+                )
+                login(
+                    request,
+                    user,
+                    backend="django.contrib.auth.backends.ModelBackend",
+                )
+                return redirect(next_url)
+        except SupabaseAuthError:
+            messages.error(request, "The admin email or password is incorrect.")
+
+    return render(
+        request,
+        "userauths/admin-login.html",
+        {"next": request.GET.get("next", "")},
+    )

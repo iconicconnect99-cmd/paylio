@@ -6,6 +6,7 @@ app_name = "userauths"
 urlpatterns = [
     path("sign-up/", views.RegisterView, name="sign-up"),
     path("admin-sign-up/", views.AdminRegisterView, name="admin-sign-up"),
+    path("admin-login/", views.AdminLoginView, name="admin-login"),
     path("sign-in/", views.LoginView, name="sign-in"),
     path("sign-out/", views.logoutView, name="sign-out"),
 ]
