@@ -2,7 +2,7 @@ services:
   - type: web
     name: paylio
     runtime: python
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate && python manage.py bootstrap_admin --if-configured
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
     startCommand: gunicorn payment_prj.wsgi:application
     envVars:
       - key: SECRET_KEY

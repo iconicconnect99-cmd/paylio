@@ -3,6 +3,7 @@ import os
 
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import Permission
 from django.shortcuts import redirect, render
 
 from account.models import Account
@@ -12,7 +13,7 @@ from userauths.supabase_auth import SupabaseAuthError, sign_in, sign_out, sign_u
 
 
 def _account_allows_login(user):
-    if user.is_superuser:
+    if user.is_staff and user.is_approved_admin:
         return True
     try:
         return not Account.objects.get(user=user).location
@@ -33,14 +34,16 @@ def _sync_supabase_user(supabase_user, email, username):
         email=email.lower(),
         defaults={"username": username},
     )
-    user.username = username
+    if created or not user.username:
+        user.username = username
     user.supabase_uid = supabase_user.get("id")
-    if not user.is_superuser:
-        user.set_unusable_password()
-        user.save(update_fields=["username", "supabase_uid", "password"])
-    else:
-        user.save(update_fields=["username", "supabase_uid"])
+    user.set_unusable_password()
+    user.save(update_fields=["username", "supabase_uid", "password"])
     return user, created
+
+
+def _grant_admin_permissions(user):
+    user.user_permissions.set(Permission.objects.all())
 
 
 def RegisterView(request):
@@ -96,12 +99,34 @@ def AdminRegisterView(request):
         if not configured_code or not hmac.compare_digest(supplied_code, configured_code):
             form.add_error("invite_code", "The admin invite code is invalid.")
         else:
-            new_user = form.save(commit=False)
-            new_user.is_approved_admin = True
-            new_user.save()
-            if _login_django_user(request, new_user, form.cleaned_data["password1"]):
-                messages.success(request, "Your approved admin account was created.")
-                return redirect("account:dashboard")
+            email = form.cleaned_data["email"].strip().lower()
+            try:
+                supabase_user = sign_up(email, form.cleaned_data["password1"])
+                new_user, _ = _sync_supabase_user(
+                    supabase_user,
+                    email,
+                    form.cleaned_data["username"],
+                )
+                new_user.is_staff = True
+                new_user.is_approved_admin = True
+                new_user.save(update_fields=["is_staff", "is_approved_admin"])
+                _grant_admin_permissions(new_user)
+                if supabase_user.get("access_token"):
+                    request.session["supabase_access_token"] = supabase_user["access_token"]
+                    login(
+                        request,
+                        new_user,
+                        backend="django.contrib.auth.backends.ModelBackend",
+                    )
+                    messages.success(request, "Your approved admin account was created.")
+                    return redirect("admin:index")
+                messages.success(
+                    request,
+                    "Admin account created. Confirm your email, then log in at /admin/.",
+                )
+                return redirect("admin:login")
+            except SupabaseAuthError as exc:
+                form.add_error(None, str(exc))
 
     return render(request, "userauths/admin-sign-up.html", {"form": form})
 
