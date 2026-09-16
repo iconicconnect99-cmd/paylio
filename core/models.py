@@ -5,6 +5,7 @@ from account.models import Account
 from shortuuid.django_fields import ShortUUIDField
 # from django.utils.timezone import now
 from django.utils import timezone
+from django.db.models.signals import post_save
 
 
 
@@ -97,6 +98,13 @@ class CreditCard(models.Model):
 
 
 class Notification(models.Model):
+    transaction = models.ForeignKey(
+        Transaction,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="notifications",
+    )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     notification_type = models.CharField(max_length=100, choices=NOTIFICATION_TYPE, default="none")
     amount = models.IntegerField(default=0)
@@ -110,3 +118,20 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.notification_type}"
+
+
+def create_transfer_notification(sender, instance, **kwargs):
+    if (
+        instance.transaction_type == "transfer"
+        and instance.status == "completed"
+        and instance.reciever_id
+    ):
+        Notification.objects.get_or_create(
+            transaction=instance,
+            user_id=instance.reciever_id,
+            notification_type="Credit Alert",
+            defaults={"amount": instance.amount},
+        )
+
+
+post_save.connect(create_transfer_notification, sender=Transaction)

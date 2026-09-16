@@ -153,12 +153,14 @@ def TransferProcess(request, account_number, transaction_id):
             account.save()
 
             Notification.objects.create(
+                transaction=transaction,
                 amount=transaction.amount,
                 user=account.user,
                 notification_type="Credit Alert"
             )
 
             Notification.objects.create(
+                transaction=transaction,
                 user=request.user,
                 notification_type="Debit Alert",
                 amount=transaction.amount
@@ -199,4 +201,3 @@ def transfer_error(request):
 
 def location(request):
     return render(request, "transfer/location.html")
-
