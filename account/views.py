@@ -63,11 +63,25 @@ def dashboard(request):
     except KYC.DoesNotExist:
         kyc = None
 
-    recent_transfer = Transaction.objects.filter(sender=request.user, transaction_type="transfer", status="completed").order_by("-id")[:1]
-    recent_recieved_transfer = Transaction.objects.filter(reciever=request.user, transaction_type="transfer").order_by("-id")[:1]
+    transfer_types = ("transfer", "recieved")
+    recent_transfer = Transaction.objects.filter(
+        sender=request.user,
+        transaction_type__in=transfer_types,
+        status="completed",
+    ).order_by("-id")[:1]
+    recent_recieved_transfer = Transaction.objects.filter(
+        reciever=request.user,
+        transaction_type__in=transfer_types,
+    ).order_by("-id")[:1]
 
-    sender_transaction = Transaction.objects.filter(sender=request.user, transaction_type="transfer").order_by("-id")
-    reciever_transaction = Transaction.objects.filter(reciever=request.user, transaction_type="transfer").order_by("-id")
+    sender_transaction = Transaction.objects.filter(
+        sender=request.user,
+        transaction_type__in=transfer_types,
+    ).order_by("-id")
+    reciever_transaction = Transaction.objects.filter(
+        reciever=request.user,
+        transaction_type__in=transfer_types,
+    ).order_by("-id")
 
     request_sender_transaction = Transaction.objects.filter(sender=request.user, transaction_type="request")
     request_reciever_transaction = Transaction.objects.filter(reciever=request.user, transaction_type="request")

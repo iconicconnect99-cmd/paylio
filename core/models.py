@@ -122,7 +122,7 @@ class Notification(models.Model):
 
 def create_transfer_notification(sender, instance, **kwargs):
     if (
-        instance.transaction_type == "transfer"
+        instance.transaction_type in {"transfer", "recieved"}
         and instance.status == "completed"
         and instance.reciever_id
     ):
