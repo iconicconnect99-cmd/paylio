@@ -5,7 +5,8 @@ from userauths.supabase_auth import SupabaseAuthError, sign_in
 
 
 class SupabaseBackend(ModelBackend):
-    def authenticate(self, request, username=None, password=None, email=None, **kwargs):
+    def authenticate(self, request, username=None,
+password=None, email=None, **kwargs):
         identifier = (email or username or "").strip().lower()
         if not identifier or not password:
             return None
@@ -27,6 +28,7 @@ class SupabaseBackend(ModelBackend):
         user.supabase_uid = supabase_user.get("id")
         user.set_unusable_password()
         user.save(update_fields=["supabase_uid", "password"])
+
         if request is not None:
             request.session["supabase_access_token"] = response.get("access_token", "")
         return user

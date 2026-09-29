@@ -68,7 +68,7 @@
                                                                         <ul class="payment-info">
                                                                             <li>
                                                                                 <p>Payment From</p>
-                                                                                <span class="mdr">{{transaction.sender.kyc.full_name|title}}</span>
+                                                                                <span class="mdr">{% if transaction.transaction_type == "crypto_deposit" %}Paylio USDT Wallet{% elif transaction.sender %}{{transaction.sender.kyc.full_name|title}}{% endif %}</span>
                                                                             </li>
                                                                             <li>
                                                                                 <p>Payment To</p>

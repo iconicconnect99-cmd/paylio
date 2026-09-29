@@ -1,0 +1,170 @@
+{% extends "partials/base.html" %}
+{% block content %}
+<section class="login-reg">
+    <div class="overlay pt-120 pb-120">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-xl-7 col-lg-9">
+                    <div class="section-text text-center">
+                        <h5 class="sub-title">Paylio USDT payment</h5>
+                        <h2 class="title">Pay {{ recipient_name }}</h2>
+                        <p>Send USDT on the TRON (TRC20) network. Paylio will credit the recipient after an administrator verifies the transaction.</p>
+                    </div>
+
+                    {% if messages %}
+                        {% for message in messages %}
+                        <div class="alert alert-info">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <div class="crypto-payment-backdrop">
+                        <div class="crypto-payment-drawer">
+                            {% if wallet %}
+                            <h4>Paylio receiving wallet</h4>
+                            <p><strong>Network:</strong> USDT on TRON (TRC20)</p>
+                            <label for="wallet-address">Send USDT to this address</label>
+                            <div class="input-group mb-3">
+                                <input id="wallet-address" class="form-control" type="text" readonly value="{{ wallet.address }}">
+                                <button class="btn btn-primary" type="button" data-copy-target="wallet-address">Copy</button>
+                            </div>
+                            <p class="text-danger"><strong>Important:</strong> Send only USDT over TRC20. Other networks or assets may not be recoverable.</p>
+                            <form method="post">
+                                {% csrf_token %}
+                                {% if form.non_field_errors %}
+                                    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                                {% endif %}
+                                <div class="single-input">
+                                    <label for="gateway-select">Select payment gateway</label>
+                                    <select class="form-control" id="gateway-select" name="gateway" required>
+                                        <option value="">Select a payment gateway</option>
+                                        {% for gateway in gateways %}
+                                            {% if gateway.usd_per_usdt %}
+                                            <option
+                                                value="{{ gateway.pk }}"
+                                                data-rate="{{ gateway.usd_per_usdt }}"
+                                                data-url="{{ gateway.buy_url }}"
+                                                {% if form.gateway.value|stringformat:"s" == gateway.pk|stringformat:"s" %}selected{% endif %}
+                                            >{{ gateway.get_gateway_display }} — ${{ gateway.usd_per_usdt }} per USDT</option>
+                                            {% else %}
+                                            <option value="" disabled>{{ gateway.get_gateway_display }} — rate not configured</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                    {% if form.gateway.errors %}<div class="text-danger">{{ form.gateway.errors }}</div>{% endif %}
+                                </div>
+                                <p id="gateway-rate" aria-live="polite">Select a configured gateway to see its USD per USDT rate.</p>
+                                <a id="buy-gateway" class="cmn-btn w-100 text-center" href="#" target="_blank" rel="noopener" hidden>Buy USDT with card</a>
+                                <p class="small mt-2">The selected provider opens in a new tab. Keep this Paylio page open to copy the wallet and submit your transaction hash. Paylio does not control or automatically interact with the provider.</p>
+
+                                <hr>
+                                <h5>Already sent USDT?</h5>
+                                <div class="single-input">
+                                    <label for="{{ form.amount.id_for_label }}">Amount sent (USDT)</label>
+                                    {{ form.amount }}
+                                    {{ form.amount.errors }}
+                                </div>
+                                <p id="usd-estimate" aria-live="polite"></p>
+                                <div class="single-input">
+                                    <label for="{{ form.tx_hash.id_for_label }}">TRON transaction hash</label>
+                                    {{ form.tx_hash }}
+                                    {{ form.tx_hash.errors }}
+                                </div>
+                                <button class="cmn-btn w-100" type="submit">Submit payment for verification</button>
+                            </form>
+                            {% else %}
+                            <h4>Payments are not configured yet</h4>
+                            <p>Paylio has not added a receiving wallet. Please contact the recipient before sending funds.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <p class="text-center mt-3">Payment for: <strong>{{ recipient_name }}</strong></p>
+                    <p class="text-center">The recipient's balance changes only after manual blockchain verification by Paylio.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<style>
+.crypto-payment-backdrop {
+    position: relative;
+    padding: 24px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(29, 36, 75, .82), rgba(80, 91, 150, .72));
+}
+.crypto-payment-drawer {
+    max-width: 680px;
+    margin: auto;
+    padding: 28px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 20px 60px rgba(11, 18, 45, .24);
+}
+.crypto-payment-drawer input {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 14px;
+    border: 1px solid #d8dbea;
+    border-radius: 6px;
+}
+.crypto-payment-drawer .input-group input {
+    width: 1%;
+    flex: 1 1 auto;
+}
+.crypto-payment-drawer .single-input {
+    margin: 18px 0;
+}
+@media (max-width: 575px) {
+    .crypto-payment-backdrop { padding: 12px; }
+    .crypto-payment-drawer { padding: 20px; }
+}
+</style>
+<script>
+document.querySelectorAll("[data-copy-target]").forEach(function (button) {
+    button.addEventListener("click", async function () {
+        const field = document.getElementById(button.dataset.copyTarget);
+        await navigator.clipboard.writeText(field.value);
+        const label = button.textContent;
+        button.textContent = "Copied";
+        window.setTimeout(function () { button.textContent = label; }, 1500);
+    });
+});
+
+const gatewaySelect = document.getElementById("gateway-select");
+const gatewayRate = document.getElementById("gateway-rate");
+const buyGateway = document.getElementById("buy-gateway");
+const amountField = document.querySelector("[data-usdt-amount]");
+const usdEstimate = document.getElementById("usd-estimate");
+
+function updateGatewayDetails() {
+    const option = gatewaySelect && gatewaySelect.selectedOptions[0];
+    if (!option || !option.dataset.rate) {
+        if (gatewayRate) gatewayRate.textContent = "Select a configured gateway to see its USD per USDT rate.";
+        if (buyGateway) buyGateway.hidden = true;
+        if (usdEstimate) usdEstimate.textContent = "";
+        return;
+    }
+
+    const rate = Number(option.dataset.rate);
+    if (gatewayRate) gatewayRate.textContent = "Rate: 1 USDT = $" + rate.toFixed(6) + " USD";
+    if (buyGateway) {
+        buyGateway.href = option.dataset.url;
+        buyGateway.textContent = "Buy USDT with card on " + option.text.split(" — ")[0];
+        buyGateway.hidden = false;
+    }
+    updateUsdEstimate(rate);
+}
+
+function updateUsdEstimate(rate) {
+    const amount = Number(amountField && amountField.value);
+    if (usdEstimate) {
+        usdEstimate.textContent = amount > 0
+            ? "Estimated recipient credit after verification: $" + (amount * rate).toFixed(2) + " USD"
+            : "";
+    }
+}
+
+if (gatewaySelect) gatewaySelect.addEventListener("change", updateGatewayDetails);
+if (amountField) amountField.addEventListener("input", updateGatewayDetails);
+updateGatewayDetails();
+</script>
+{% endblock content %}

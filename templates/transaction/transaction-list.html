@@ -105,7 +105,7 @@
                                                     {% for s in reciever_transaction %}
                                                         <tr data-bs-toggle="modal" data-bs-target="#transactionsMod">
                                                             <th scope="row">
-                                                                <p>{{s.sender.kyc.full_name|title}}</p>
+                                                                <p>{% if s.transaction_type == "crypto_deposit" %}Paylio USDT Deposit{% elif s.sender %}{{s.sender.kyc.full_name|title}}{% endif %}</p>
                                                                 <p class="mdr">{{s.transaction_type|title}}</p>
                                                             </th>
                                                             <td>

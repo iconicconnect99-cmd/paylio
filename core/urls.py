@@ -1,5 +1,12 @@
 from django.urls import path
-from core import views, transfer, transaction, payment_request, credit_card
+from core import (
+    crypto_views,
+    views,
+    transfer,
+    transaction,
+    payment_request,
+    credit_card,
+)
 
 
 app_name = "core"
@@ -22,6 +29,8 @@ urlpatterns = [
     # transactions
     path("transactions/", transaction.transaction_lists, name="transactions"),
     path("transaction-detail/<transaction_id>/", transaction.transaction_detail, name="transaction-detail"),
+    path("crypto/receive/", crypto_views.receive_usdt, name="crypto-receive"),
+    path("crypto/pay/<uuid:token>/", crypto_views.crypto_payment, name="crypto-payment"),
 
     # Payment Request
     path("request-search-account/", payment_request.SearchUsersRequest, name="request-search-account"),

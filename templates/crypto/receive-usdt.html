@@ -1,0 +1,75 @@
+{% extends "partials/dashboard-base.html" %}
+{% load static %}
+{% block content %}
+<section class="dashboard-section body-collapse">
+    <div class="overlay pt-120">
+        <div class="container-fruid">
+            <div class="row justify-content-center">
+                <div class="col-xl-8 col-lg-10">
+                    <div class="section-content">
+                        <div class="transactions-area">
+                            <div class="section-text">
+                                <h5>Receive USDT</h5>
+                                <p>Create and share a personal payment link. Senders can pay to Paylio's verified TRC20 wallet.</p>
+                            </div>
+                            <div class="card p-4">
+                                <label for="payment-link" class="form-label">Your personal payment link</label>
+                                <div class="input-group">
+                                    <input id="payment-link" class="form-control" type="url" readonly value="{{ share_url }}">
+                                    <button class="btn btn-primary" type="button" data-copy-target="payment-link">Copy link</button>
+                                </div>
+                                <p class="mt-3 mb-0">Anyone with this link can submit a payment for your account. Your balance is credited only after Paylio manually verifies the transaction on TRONSCAN.</p>
+                            </div>
+
+                            <div class="section-text mt-5">
+                                <h5>Payment submissions</h5>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Amount</th>
+                                            <th>Gateway rate</th>
+                                            <th>USD credit</th>
+                                            <th>Network</th>
+                                            <th>Transaction hash</th>
+                                            <th>Status</th>
+                                            <th>Submitted</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for deposit in deposits %}
+                                        <tr>
+                                            <td>{{ deposit.amount }} USDT</td>
+                                            <td>{% if deposit.gateway %}{{ deposit.gateway.get_gateway_display }} — ${{ deposit.usd_per_usdt_rate }}/USDT{% else %}—{% endif %}</td>
+                                            <td>${{ deposit.transaction.amount|default:"—" }}</td>
+                                            <td>{{ deposit.network }}</td>
+                                            <td><a href="https://tronscan.org/#/transaction/{{ deposit.tx_hash }}" target="_blank" rel="noopener">{{ deposit.tx_hash|truncatechars:20 }}</a></td>
+                                            <td>{{ deposit.get_status_display }}</td>
+                                            <td>{{ deposit.submitted_at|date:"d M Y, H:i" }}</td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr><td colspan="7">No crypto payments submitted yet.</td></tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+<script>
+document.querySelectorAll("[data-copy-target]").forEach(function (button) {
+    button.addEventListener("click", async function () {
+        const field = document.getElementById(button.dataset.copyTarget);
+        await navigator.clipboard.writeText(field.value);
+        const label = button.textContent;
+        button.textContent = "Copied";
+        window.setTimeout(function () { button.textContent = label; }, 1500);
+    });
+});
+</script>
+{% endblock content %}

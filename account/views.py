@@ -1,11 +1,16 @@
-from django.shortcuts import render, redirect
+﻿from django.shortcuts import render, redirect
 from account.models import KYC, Account
 from account.forms import KYCForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from core.forms import CreditCardForm
-from core.models import CreditCard, Notification, Transaction
-
+from core.models import (
+    RECEIVED_TRANSACTION_TYPES,
+    TRANSFER_TRANSACTION_TYPES,
+    CreditCard,
+    Notification,
+    Transaction,
+)
 
 
 # @login_required
@@ -26,6 +31,7 @@ def account(request):
         messages.warning(request, "You need to login to access the dashboard")
         return redirect("userauths:sign-in")
 
+
 @login_required
 def kyc_registration(request):
     user = request.user
@@ -33,9 +39,9 @@ def kyc_registration(request):
 
     try:
         kyc = KYC.objects.get(user=user)
-    except:
+    except KYC.DoesNotExist:
         kyc = None
-    
+
     if request.method == "POST":
         form = KYCForm(request.POST, request.FILES, instance=kyc)
         if form.is_valid():
@@ -63,24 +69,22 @@ def dashboard(request):
     except KYC.DoesNotExist:
         kyc = None
 
-    transfer_types = ("transfer", "recieved")
     recent_transfer = Transaction.objects.filter(
         sender=request.user,
-        transaction_type__in=transfer_types,
-        status="completed",
+        transaction_type__in=TRANSFER_TRANSACTION_TYPES,
     ).order_by("-id")[:1]
     recent_recieved_transfer = Transaction.objects.filter(
         reciever=request.user,
-        transaction_type__in=transfer_types,
+        transaction_type__in=RECEIVED_TRANSACTION_TYPES,
     ).order_by("-id")[:1]
 
     sender_transaction = Transaction.objects.filter(
         sender=request.user,
-        transaction_type__in=transfer_types,
+        transaction_type__in=TRANSFER_TRANSACTION_TYPES,
     ).order_by("-id")
     reciever_transaction = Transaction.objects.filter(
         reciever=request.user,
-        transaction_type__in=transfer_types,
+        transaction_type__in=RECEIVED_TRANSACTION_TYPES,
     ).order_by("-id")
 
     request_sender_transaction = Transaction.objects.filter(sender=request.user, transaction_type="request")

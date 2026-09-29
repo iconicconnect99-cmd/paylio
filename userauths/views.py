@@ -22,8 +22,9 @@ def _account_allows_login(user):
         return False
 
 
-def _login_django_user(request, user, password):
-    authenticated_user = authenticate(request, email=user.email, password=password)
+def _login_django_user(request, user, passkey):
+    authenticated_user = authenticate(request, email=user.email,
+password=passkey)
     if authenticated_user is None or not _account_allows_login(authenticated_user):
         return False
     login(request, authenticated_user)
@@ -45,6 +46,15 @@ def _sync_supabase_user(supabase_user, email, username):
 
 def _grant_admin_permissions(user):
     user.user_permissions.set(Permission.objects.all())
+
+
+def _admin_invite_matches(invite_code):
+    configured_code = os.environ.get("PAYLIO_ADMIN_INVITE_CODE", "").strip()
+    supplied_code = (invite_code or "").strip()
+    return bool(configured_code and supplied_code) and hmac.compare_digest(
+        supplied_code,
+        configured_code,
+    )
 
 
 def RegisterView(request):
@@ -130,9 +140,9 @@ def LoginView(request):
 
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
-        password = request.POST.get("password", "")
+        passkey = request.POST.get("password", "")
         try:
-            auth_response = sign_in(email, password)
+            auth_response = sign_in(email, passkey)
             supabase_user = auth_response.get("user") or {}
             user, _ = _sync_supabase_user(
                 supabase_user,
@@ -144,10 +154,7 @@ def LoginView(request):
                 messages.error(request, "Use the admin portal to sign in with this account.")
                 return render(request, "userauths/sign-in.html")
             if _account_allows_login(user):
-                request.session["supabase_access_token"] = auth_response.get(
-                    "access_token",
-                    "",
-                )
+                request.session["supabase_access_token"] = auth_response.get("access_token", "")
                 login(
                     request,
                     user,
@@ -176,11 +183,11 @@ def AdminLoginView(request):
 
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
-        password = request.POST.get("password", "")
+        passkey = request.POST.get("password", "")
         invite_code = request.POST.get("invite_code", "")
         next_url = request.POST.get("next") or request.GET.get("next") or reverse("admin:index")
         try:
-            auth_response = sign_in(email, password)
+            auth_response = sign_in(email, passkey)
             supabase_user = auth_response.get("user") or {}
             user, _ = _sync_supabase_user(
                 supabase_user,
@@ -188,12 +195,7 @@ def AdminLoginView(request):
                 supabase_user.get("user_metadata", {}).get("username")
                 or email.split("@", 1)[0],
             )
-            configured_code = os.environ.get("PAYLIO_ADMIN_INVITE_CODE", "")
-            valid_invite = (
-                configured_code
-                and invite_code
-                and hmac.compare_digest(invite_code, configured_code)
-            )
+            valid_invite = _admin_invite_matches(invite_code)
             if valid_invite and not user.is_approved_admin:
                 user.is_staff = True
                 user.is_approved_admin = True
@@ -203,10 +205,7 @@ def AdminLoginView(request):
             if not user.is_staff or not user.is_approved_admin:
                 messages.error(request, "This Supabase account is not approved for administration.")
             else:
-                request.session["supabase_access_token"] = auth_response.get(
-                    "access_token",
-                    "",
-                )
+                request.session["supabase_access_token"] = auth_response.get("access_token", "")
                 login(
                     request,
                     user,
