@@ -6,8 +6,8 @@
 2. In the Railway service variables, set the environment variables listed below.
 3. Generate a Railway public domain for the service. Railway provides
    `RAILWAY_PUBLIC_DOMAIN`, which Django uses for allowed hosts and CSRF checks.
-4. Deploy. `railway.json` collects static files during the build, then applies
-   Django migrations before starting Gunicorn.
+4. Deploy. Railway builds the `Dockerfile`, which collects static files and
+   applies Django migrations before starting Gunicorn.
 
 ## Required variables
 
