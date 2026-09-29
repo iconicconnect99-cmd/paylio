@@ -26,6 +26,7 @@ def receive_usdt(request):
         enabled=True,
         usd_per_usdt__isnull=False,
     )
+    wallet = CryptoWallet.objects.first()
     return render(
         request,
         "crypto/receive-usdt.html",
@@ -34,6 +35,7 @@ def receive_usdt(request):
             "share_url": share_url,
             "recipient_name": _recipient_name(request.user),
             "gateways": gateways,
+            "wallet": wallet,
             "deposits": payment_link.deposits.select_related("transaction"),
         },
     )

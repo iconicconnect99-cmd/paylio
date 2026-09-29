@@ -127,6 +127,7 @@ class CryptoDepositTests(TestCase):
         self.assertContains(response, "$0.970000 per USDT")
         self.assertContains(response, self.gateway.buy_url)
         self.assertContains(response, changelly.buy_url)
+        self.assertContains(response, 'role="dialog" aria-modal="true"')
 
     def test_each_enabled_configured_gateway_is_shown_with_its_rate(self):
         CryptoPaymentGateway.objects.filter(gateway="changelly").update(
@@ -159,7 +160,9 @@ class CryptoDepositTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Payment page for crypto-recipient")
+        self.assertContains(response, "Payment for crypto-recipient")
+        self.assertContains(response, 'role="dialog" aria-modal="true"')
+        self.assertContains(response, self.wallet.address)
         self.assertContains(response, "Changelly")
         self.assertContains(response, changelly.buy_url)
         self.assertContains(response, "Preview sender page")
