@@ -8,7 +8,7 @@
                     <div class="section-text text-center">
                         <h5 class="sub-title">Paylio USDT payment</h5>
                         <h2 class="title">Pay {{ recipient_name }}</h2>
-                        <p>Send USDT on the TRON (TRC20) network. Paylio will credit the recipient after an administrator verifies the transaction.</p>
+                        <p>Payment for <strong>{{ recipient_name }}</strong>. Send USDT on the TRON (TRC20) network. Paylio will credit the recipient after an administrator verifies the transaction.</p>
                     </div>
 
                     {% if messages %}
@@ -20,6 +20,17 @@
                     <div class="crypto-payment-backdrop">
                         <div class="crypto-payment-drawer">
                             {% if wallet %}
+                            <h4>Choose where to buy USDT</h4>
+                            <p>Select an available provider. The provider opens in a new tab; return here afterward to submit the transaction hash.</p>
+                            <div class="gateway-links mb-4">
+                                {% for gateway in gateways %}
+                                    {% if gateway.usd_per_usdt %}
+                                    <a class="btn btn-outline-primary me-2 mb-2" href="{{ gateway.buy_url }}" target="_blank" rel="noopener">
+                                        {{ gateway.get_gateway_display }} — ${{ gateway.usd_per_usdt }}/USDT
+                                    </a>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
                             <h4>Paylio receiving wallet</h4>
                             <p><strong>Network:</strong> USDT on TRON (TRC20)</p>
                             <label for="wallet-address">Send USDT to this address</label>

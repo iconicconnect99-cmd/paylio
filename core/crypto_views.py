@@ -9,11 +9,22 @@ from core.crypto_forms import CryptoDepositForm
 from core.models import CryptoDeposit, CryptoPaymentGateway, CryptoWallet, PaymentLink
 
 
+def _recipient_name(user):
+    try:
+        return user.kyc.full_name
+    except KYC.DoesNotExist:
+        return user.username
+
+
 @login_required
 def receive_usdt(request):
     payment_link, _ = PaymentLink.objects.get_or_create(user=request.user)
     share_url = request.build_absolute_uri(
         reverse("core:crypto-payment", args=[payment_link.token])
+    )
+    gateways = CryptoPaymentGateway.objects.filter(
+        enabled=True,
+        usd_per_usdt__isnull=False,
     )
     return render(
         request,
@@ -21,6 +32,8 @@ def receive_usdt(request):
         {
             "payment_link": payment_link,
             "share_url": share_url,
+            "recipient_name": _recipient_name(request.user),
+            "gateways": gateways,
             "deposits": payment_link.deposits.select_related("transaction"),
         },
     )
@@ -33,10 +46,7 @@ def crypto_payment(request, token):
     )
     wallet = CryptoWallet.objects.first()
     gateways = CryptoPaymentGateway.objects.filter(enabled=True)
-    try:
-        recipient_name = payment_link.user.kyc.full_name
-    except KYC.DoesNotExist:
-        recipient_name = payment_link.user.username
+    recipient_name = _recipient_name(payment_link.user)
 
     form = CryptoDepositForm(request.POST or None)
     if request.method == "POST" and form.is_valid():

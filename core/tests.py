@@ -110,17 +110,23 @@ class CryptoDepositTests(TestCase):
         self.assertEqual(self.recipient.account.account_balance, Decimal("0.00"))
 
     def test_payment_page_shows_recipient_wallet_and_changelly_action(self):
+        changelly = CryptoPaymentGateway.objects.get(gateway="changelly")
+        changelly.usd_per_usdt = Decimal("1.010000")
+        changelly.save(update_fields=["usd_per_usdt"])
         response = self.client.get(
             reverse("core:crypto-payment", args=[self.payment_link.token])
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "crypto-recipient")
+        self.assertContains(response, "Payment for <strong>crypto-recipient</strong>")
         self.assertContains(response, self.wallet.address)
         self.assertContains(response, "TRC20")
         self.assertContains(response, "MoonPay")
+        self.assertContains(response, "Changelly")
         self.assertContains(response, "$0.970000 per USDT")
         self.assertContains(response, self.gateway.buy_url)
+        self.assertContains(response, changelly.buy_url)
 
     def test_each_enabled_configured_gateway_is_shown_with_its_rate(self):
         CryptoPaymentGateway.objects.filter(gateway="changelly").update(
@@ -141,12 +147,23 @@ class CryptoDepositTests(TestCase):
         self.assertContains(response, "$0.990000 per USDT")
 
     def test_received_usdt_page_generates_a_shareable_link(self):
+        changelly = CryptoPaymentGateway.objects.get(gateway="changelly")
+        changelly.usd_per_usdt = Decimal("1.010000")
+        changelly.save(update_fields=["usd_per_usdt"])
         self.client.force_login(self.recipient)
 
-        response = self.client.get(reverse("core:crypto-receive"))
+        response = self.client.get(
+            reverse("core:crypto-receive"),
+            HTTP_X_FORWARDED_PROTO="https",
+            HTTP_HOST="testserver",
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Your personal payment link")
+        self.assertContains(response, "Payment page for crypto-recipient")
+        self.assertContains(response, "Changelly")
+        self.assertContains(response, changelly.buy_url)
+        self.assertContains(response, "Preview sender page")
+        self.assertContains(response, "https://testserver/crypto/pay/")
         self.assertTrue(PaymentLink.objects.filter(user=self.recipient).exists())
 
     def test_admin_confirmation_credits_once_and_records_ledger_and_notification(self):
