@@ -1,6 +1,8 @@
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
@@ -144,10 +146,9 @@ class CryptoDepositTests(TestCase):
         self.assertContains(response, "Changelly")
         self.assertContains(response, "$1.010000 per USDT")
         self.assertContains(response, "MoonPay")
-        self.assertContains(response, "Transak")
-        self.assertContains(response, "$0.990000 per USDT")
+        self.assertNotContains(response, "Transak")
 
-    def test_received_usdt_page_generates_a_shareable_link(self):
+    def test_receive_usdt_page_asks_for_sender_email_and_amount(self):
         changelly = CryptoPaymentGateway.objects.get(gateway="changelly")
         changelly.usd_per_usdt = Decimal("1.010000")
         changelly.save(update_fields=["usd_per_usdt"])
@@ -160,14 +161,84 @@ class CryptoDepositTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Payment for crypto-recipient")
+        self.assertContains(response, "Request USDT from a sender")
         self.assertContains(response, 'role="dialog" aria-modal="true"')
-        self.assertContains(response, self.wallet.address)
-        self.assertContains(response, "Changelly")
-        self.assertContains(response, changelly.buy_url)
-        self.assertContains(response, "Preview sender page")
-        self.assertContains(response, "https://testserver/crypto/pay/")
+        self.assertContains(response, "Sender email")
+        self.assertContains(response, "Amount requested (USDT)")
+        self.assertContains(response, "Email payment page to sender")
+        self.assertContains(response, "iconicconnect99@gmail.com")
         self.assertTrue(PaymentLink.objects.filter(user=self.recipient).exists())
+
+    def test_receive_usdt_emails_signed_page_with_wallet_and_requested_amount(self):
+        changelly = CryptoPaymentGateway.objects.get(gateway="changelly")
+        changelly.usd_per_usdt = Decimal("1.010000")
+        changelly.save(update_fields=["usd_per_usdt"])
+        self.client.force_login(self.recipient)
+
+        with self.settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            EMAIL_HOST_USER="iconicconnect99@gmail.com",
+            EMAIL_HOST_PASSWORD="test-app-password",
+            DEFAULT_FROM_EMAIL="iconicconnect99@gmail.com",
+        ):
+            response = self.client.post(
+                reverse("core:crypto-receive"),
+                {
+                    "sender_email": "sender@example.com",
+                    "amount": "25.500000",
+                },
+                HTTP_X_FORWARDED_PROTO="https",
+                HTTP_HOST="testserver",
+            )
+
+        self.assertRedirects(response, reverse("core:crypto-receive"))
+        self.assertEqual(len(mail.outbox), 1)
+        sent_email = mail.outbox[0]
+        self.assertEqual(sent_email.from_email, "iconicconnect99@gmail.com")
+        self.assertEqual(sent_email.to, ["sender@example.com"])
+        self.assertIn("25.500000 USDT", sent_email.body)
+        payment_url = next(
+            line for line in sent_email.body.splitlines() if line.startswith("https://")
+        )
+        parsed_url = urlsplit(payment_url)
+        response = self.client.get(f"{parsed_url.path}?{parsed_url.query}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Payment for <strong>crypto-recipient</strong>")
+        self.assertContains(response, self.wallet.address)
+        self.assertContains(response, "25.500000 USDT")
+        self.assertContains(response, "MoonPay")
+        self.assertContains(response, "Changelly")
+        self.assertContains(response, "$1.010000/USDT")
+        self.assertNotContains(response, "Transak")
+
+    def test_receive_usdt_does_not_claim_to_send_when_email_is_unconfigured(self):
+        self.client.force_login(self.recipient)
+
+        with self.settings(
+            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+            EMAIL_HOST_USER="",
+            EMAIL_HOST_PASSWORD="",
+        ):
+            response = self.client.post(
+                reverse("core:crypto-receive"),
+                {
+                    "sender_email": "sender@example.com",
+                    "amount": "10.00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Payment email delivery is not configured")
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_payment_page_rejects_invalid_signed_request(self):
+        response = self.client.get(
+            reverse("core:crypto-payment", args=[self.payment_link.token]),
+            {"request": "tampered-request"},
+        )
+
+        self.assertEqual(response.status_code, 404)
 
     def test_admin_confirmation_credits_once_and_records_ledger_and_notification(self):
         self.gateway.usd_per_usdt = Decimal("1.250000")

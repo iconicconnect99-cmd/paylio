@@ -20,16 +20,26 @@
                     <div class="crypto-payment-drawer" role="dialog" aria-modal="true" aria-labelledby="crypto-payment-title">
                             <h3 id="crypto-payment-title" class="mb-4">Payment for {{ recipient_name }}</h3>
                             {% if wallet %}
+                            {% if requested_amount %}
+                            <div class="alert alert-primary">
+                                <strong>Amount requested:</strong> {{ requested_amount }} USDT
+                            </div>
+                            {% endif %}
                             <h4>Choose where to buy USDT</h4>
                             <p>Select an available provider. The provider opens in a new tab; return here afterward to submit the transaction hash.</p>
                             <div class="gateway-links mb-4">
                                 {% for gateway in gateways %}
-                                    {% if gateway.usd_per_usdt %}
                                     <a class="btn btn-outline-primary me-2 mb-2" href="{{ gateway.buy_url }}" target="_blank" rel="noopener">
+                                        {% if gateway.usd_per_usdt %}
                                         {{ gateway.get_gateway_display }} — ${{ gateway.usd_per_usdt }}/USDT
+                                        {% else %}
+                                        {{ gateway.get_gateway_display }} — rate not configured
+                                        {% endif %}
                                     </a>
-                                    {% endif %}
                                 {% endfor %}
+                                {% if not gateways %}
+                                <p>No payment providers are enabled. Please contact Paylio support.</p>
+                                {% endif %}
                             </div>
                             <h4>Paylio receiving wallet</h4>
                             <p><strong>Network:</strong> USDT on TRON (TRC20)</p>

@@ -5,6 +5,31 @@ from django import forms
 from core.models import CryptoDeposit, CryptoPaymentGateway
 
 
+class CryptoPaymentRequestForm(forms.Form):
+    sender_email = forms.EmailField(
+        label="Sender email",
+        widget=forms.EmailInput(
+            attrs={
+                "autocomplete": "email",
+                "placeholder": "Email address",
+            }
+        ),
+    )
+    amount = forms.DecimalField(
+        label="Amount requested (USDT)",
+        max_digits=18,
+        decimal_places=6,
+        min_value=0.01,
+        widget=forms.NumberInput(
+            attrs={
+                "step": "0.000001",
+                "min": "0.01",
+                "placeholder": "Amount in USDT",
+            }
+        ),
+    )
+
+
 class CryptoDepositForm(forms.ModelForm):
     gateway = forms.ModelChoiceField(
         queryset=CryptoPaymentGateway.objects.none(),
@@ -41,6 +66,7 @@ class CryptoDepositForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["gateway"].queryset = CryptoPaymentGateway.objects.filter(
             enabled=True,
+            gateway__in=("changelly", "moonpay"),
             usd_per_usdt__isnull=False,
         )
         self.fields["gateway"].widget.attrs["id"] = "gateway-select"

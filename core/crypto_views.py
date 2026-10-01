@@ -1,12 +1,26 @@
+import logging
+import smtplib
+from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
+from django.core import signing
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.urls import reverse
 
 from account.models import KYC
-from core.crypto_forms import CryptoDepositForm
+from core.crypto_forms import CryptoDepositForm, CryptoPaymentRequestForm
 from core.models import CryptoDeposit, CryptoPaymentGateway, CryptoWallet, PaymentLink
+
+logger = logging.getLogger(__name__)
+PAYMENT_REQUEST_SALT = "core.crypto-payment-request"
+PAYMENT_REQUEST_MAX_AGE = 30 * 24 * 60 * 60
 
 
 def _recipient_name(user):
@@ -19,23 +33,81 @@ def _recipient_name(user):
 @login_required
 def receive_usdt(request):
     payment_link, _ = PaymentLink.objects.get_or_create(user=request.user)
-    share_url = request.build_absolute_uri(
-        reverse("core:crypto-payment", args=[payment_link.token])
-    )
+    form = CryptoPaymentRequestForm(request.POST or None)
     gateways = CryptoPaymentGateway.objects.filter(
         enabled=True,
-        usd_per_usdt__isnull=False,
+        gateway__in=("changelly", "moonpay"),
     )
     wallet = CryptoWallet.objects.first()
+    if request.method == "POST" and form.is_valid():
+        if wallet is None:
+            messages.error(
+                request,
+                "USDT payments are not available until a receiving wallet is configured.",
+            )
+        elif not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+            messages.error(
+                request,
+                "Payment email delivery is not configured. Please contact Paylio support.",
+            )
+        else:
+            signed_request = signing.dumps(
+                {"amount": str(form.cleaned_data["amount"])},
+                salt=PAYMENT_REQUEST_SALT,
+            )
+            payment_url = request.build_absolute_uri(
+                reverse("core:crypto-payment", args=[payment_link.token])
+            )
+            payment_url = f"{payment_url}?{urlencode({'request': signed_request})}"
+            email_context = {
+                "amount": form.cleaned_data["amount"],
+                "payment_url": payment_url,
+                "recipient_name": _recipient_name(request.user),
+            }
+            try:
+                email_count = send_mail(
+                    subject="Your Paylio USDT payment page",
+                    message=render_to_string(
+                        "crypto/payment-request-email.txt",
+                        email_context,
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[form.cleaned_data["sender_email"]],
+                    html_message=render_to_string(
+                        "crypto/payment-request-email.html",
+                        email_context,
+                    ),
+                    fail_silently=False,
+                )
+            except (OSError, smtplib.SMTPException):
+                logger.exception("Could not send a USDT payment request email.")
+                messages.error(
+                    request,
+                    "Paylio could not send the payment page email. Check the email address or try again later.",
+                )
+            else:
+                if email_count != 1:
+                    messages.error(
+                        request,
+                        "Paylio could not send the payment page email. Please try again later.",
+                    )
+                else:
+                    messages.success(
+                        request,
+                        f"Payment page sent to {form.cleaned_data['sender_email']}.",
+                    )
+                    return redirect("core:crypto-receive")
+
     return render(
         request,
         "crypto/receive-usdt.html",
         {
             "payment_link": payment_link,
-            "share_url": share_url,
+            "form": form,
             "recipient_name": _recipient_name(request.user),
             "gateways": gateways,
             "wallet": wallet,
+            "payment_email_from": settings.DEFAULT_FROM_EMAIL,
             "deposits": payment_link.deposits.select_related("transaction"),
         },
     )
@@ -47,10 +119,30 @@ def crypto_payment(request, token):
         token=token,
     )
     wallet = CryptoWallet.objects.first()
-    gateways = CryptoPaymentGateway.objects.filter(enabled=True)
+    gateways = CryptoPaymentGateway.objects.filter(
+        enabled=True,
+        gateway__in=("changelly", "moonpay"),
+    )
     recipient_name = _recipient_name(payment_link.user)
+    requested_amount = None
+    signed_request = request.GET.get("request")
+    if signed_request:
+        try:
+            payload = signing.loads(
+                signed_request,
+                salt=PAYMENT_REQUEST_SALT,
+                max_age=PAYMENT_REQUEST_MAX_AGE,
+            )
+            requested_amount = Decimal(payload["amount"])
+            if requested_amount <= 0:
+                raise InvalidOperation
+        except (signing.BadSignature, KeyError, TypeError, InvalidOperation):
+            raise Http404("This payment request link is invalid or has expired.")
 
-    form = CryptoDepositForm(request.POST or None)
+    form = CryptoDepositForm(
+        request.POST or None,
+        initial={"amount": requested_amount} if requested_amount is not None else None,
+    )
     if request.method == "POST" and form.is_valid():
         if wallet is None:
             messages.error(request, "USDT deposits are not available yet.")
@@ -101,6 +193,7 @@ def crypto_payment(request, token):
         {
             "payment_link": payment_link,
             "recipient_name": recipient_name,
+            "requested_amount": requested_amount,
             "wallet": wallet,
             "gateways": gateways,
             "form": form,

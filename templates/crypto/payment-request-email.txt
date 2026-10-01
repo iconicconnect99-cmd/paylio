@@ -1,0 +1,6 @@
+{{ recipient_name }} has requested {{ amount }} USDT from you.
+
+Open the secure Paylio payment page to view the recipient, TRC20 wallet, and available payment providers:
+{{ payment_url }}
+
+Only send USDT over the TRON (TRC20) network. Paylio credits the recipient after an administrator verifies the transaction.

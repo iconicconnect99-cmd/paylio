@@ -13,47 +13,35 @@
                     <button class="receive-usdt-close" type="button" data-close-receive-modal aria-label="Close Receive USDT">×</button>
                 </header>
                 <div class="receive-usdt-modal-body">
-                    <h4>Payment for {{ recipient_name }}</h4>
-                    <p>Share this page with the person sending you USDT. They will see your name, Paylio's receiving wallet, and the available payment providers.</p>
+                    {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert {% if 'error' in message.tags %}alert-danger{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %}">{{ message }}</div>
+                    {% endfor %}
+                    {% endif %}
                     {% if wallet %}
-                    <div class="receive-usdt-detail">
-                        <strong>Receiving network</strong>
-                        <span>USDT on TRON (TRC20)</span>
-                    </div>
-                    <div class="receive-usdt-detail">
-                        <strong>Paylio receiving wallet</strong>
-                        <div class="input-group">
-                            <input id="wallet-address" class="form-control" type="text" readonly value="{{ wallet.address }}">
-                            <button class="btn btn-outline-primary" type="button" data-copy-target="wallet-address">Copy wallet</button>
+                    <h4>Request USDT from a sender</h4>
+                    <p>Enter the sender's email and the amount you are requesting. Paylio will email them a secure payment page with your name, the TRC20 wallet, and MoonPay and Changelly options.</p>
+                    <form method="post" class="receive-usdt-request-form">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+                        {% endif %}
+                        <div class="receive-usdt-detail">
+                            <label for="{{ form.sender_email.id_for_label }}"><strong>Sender email</strong></label>
+                            {{ form.sender_email }}
+                            {% if form.sender_email.errors %}<div class="text-danger">{{ form.sender_email.errors }}</div>{% endif %}
                         </div>
-                    </div>
+                        <div class="receive-usdt-detail">
+                            <label for="{{ form.amount.id_for_label }}"><strong>Amount requested (USDT)</strong></label>
+                            {{ form.amount }}
+                            {% if form.amount.errors %}<div class="text-danger">{{ form.amount.errors }}</div>{% endif %}
+                        </div>
+                        <button class="btn btn-primary w-100" type="submit">Email payment page to sender</button>
+                    </form>
+                    <p class="small mt-3 mb-0">The payment email is sent from {{ payment_email_from }}. Only request payment after confirming the amount with the sender.</p>
                     {% else %}
                     <div class="alert alert-warning">Paylio has not configured a receiving wallet yet. Do not ask the sender to transfer funds until it is set up.</div>
                     {% endif %}
-
-                    <div class="receive-usdt-detail">
-                        <strong>Payment providers shown to the sender</strong>
-                        <div class="receive-usdt-gateways">
-                            {% for gateway in gateways %}
-                            <a class="receive-usdt-gateway" href="{{ gateway.buy_url }}" target="_blank" rel="noopener">
-                                <span>{{ gateway.get_gateway_display }}</span>
-                                <strong>${{ gateway.usd_per_usdt }} per USDT</strong>
-                            </a>
-                            {% empty %}
-                            <p class="mb-0">Providers will appear here after Paylio configures their rates.</p>
-                            {% endfor %}
-                        </div>
-                    </div>
-
-                    <div class="receive-usdt-detail">
-                        <label for="payment-link" class="form-label"><strong>Your shareable sender page</strong></label>
-                        <div class="input-group">
-                            <input id="payment-link" class="form-control" type="url" readonly value="{{ share_url }}">
-                            <button class="btn btn-primary" type="button" data-copy-target="payment-link">Copy link</button>
-                        </div>
-                        <a class="btn btn-outline-primary mt-3" href="{{ share_url }}" target="_blank" rel="noopener">Preview sender page</a>
-                    </div>
-                    <p class="small mb-0">Anyone with this link can submit a payment for your account. Your balance is credited only after Paylio manually verifies the transaction on TRONSCAN.</p>
                 </div>
             </section>
         </div>
@@ -155,6 +143,13 @@
     border-radius: 8px;
 }
 .receive-usdt-open { overflow: hidden; }
+.receive-usdt-request-form input {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 14px;
+    border: 1px solid #d8dbea;
+    border-radius: 6px;
+}
 @media (max-width: 575px) {
     .receive-usdt-modal-backdrop { padding: 10px; }
     .receive-usdt-modal { max-height: calc(100vh - 20px); }
