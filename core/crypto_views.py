@@ -83,7 +83,7 @@ def receive_usdt(request):
                 logger.exception("Could not send a USDT payment request email.")
                 messages.error(
                     request,
-                    "Paylio could not send the payment page email. Check the email address or try again later.",
+                    "Paylio could not send the payment page email. Please try again later or contact support.",
                 )
             else:
                 if email_count != 1:

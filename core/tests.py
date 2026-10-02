@@ -170,6 +170,21 @@ class CryptoDepositTests(TestCase):
         self.assertContains(response, "iconicconnect99@gmail.com")
         self.assertTrue(PaymentLink.objects.filter(user=self.recipient).exists())
 
+    def test_receive_usdt_page_explains_missing_wallet_instead_of_hiding_request_form(self):
+        self.wallet.delete()
+        self.client.force_login(self.recipient)
+
+        response = self.client.get(reverse("core:crypto-receive"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Sender email")
+        self.assertContains(response, "Amount requested (USDT)")
+        self.assertContains(response, "has not configured a receiving wallet yet")
+        self.assertRegex(
+            response.content.decode(),
+            r'<button[^>]*type="submit"[^>]*disabled',
+        )
+
     def test_receive_usdt_emails_signed_page_with_wallet_and_requested_amount(self):
         changelly = CryptoPaymentGateway.objects.get(gateway="changelly")
         changelly.usd_per_usdt = Decimal("1.010000")
@@ -251,6 +266,7 @@ class CryptoDepositTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "could not send the payment page email")
+        self.assertNotContains(response, "Check the email address")
         send_mail_mock.assert_called_once()
 
     def test_payment_page_rejects_invalid_signed_request(self):

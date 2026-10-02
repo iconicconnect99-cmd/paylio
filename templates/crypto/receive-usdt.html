@@ -18,9 +18,11 @@
                     <div class="alert {% if 'error' in message.tags %}alert-danger{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %}">{{ message }}</div>
                     {% endfor %}
                     {% endif %}
-                    {% if wallet %}
                     <h4>Request USDT from a sender</h4>
                     <p>Enter the sender's email and the amount you are requesting. Paylio will email them a secure payment page with your name, the TRC20 wallet, and MoonPay and Changelly options.</p>
+                    {% if not wallet %}
+                    <div class="alert alert-warning">Paylio has not configured a receiving wallet yet. You can prepare the request, but it cannot be sent until support configures a wallet.</div>
+                    {% endif %}
                     <form method="post" class="receive-usdt-request-form">
                         {% csrf_token %}
                         {% if form.non_field_errors %}
@@ -36,12 +38,9 @@
                             {{ form.amount }}
                             {% if form.amount.errors %}<div class="text-danger">{{ form.amount.errors }}</div>{% endif %}
                         </div>
-                        <button class="btn btn-primary w-100" type="submit">Email payment page to sender</button>
+                        <button class="btn btn-primary w-100" type="submit" {% if not wallet %}disabled{% endif %}>Email payment page to sender</button>
                     </form>
                     <p class="small mt-3 mb-0">The payment email is sent from {{ payment_email_from }}. Only request payment after confirming the amount with the sender.</p>
-                    {% else %}
-                    <div class="alert alert-warning">Paylio has not configured a receiving wallet yet. Do not ask the sender to transfer funds until it is set up.</div>
-                    {% endif %}
                 </div>
             </section>
         </div>
