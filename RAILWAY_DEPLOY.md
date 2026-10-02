@@ -24,8 +24,8 @@
   `iconicconnect99@gmail.com`.
 - `EMAIL_HOST_PASSWORD`: a Gmail App Password for that account; never use or
   commit the account's regular password.
-- `EMAIL_HOST`, `EMAIL_PORT`, and `EMAIL_USE_TLS`: SMTP settings. Defaults are
-  `smtp.gmail.com`, `587`, and `True`.
+- `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_TIMEOUT`, and `EMAIL_USE_TLS`: SMTP
+  settings. Defaults are `smtp.gmail.com`, `587`, `10` seconds, and `True`.
 - `DEFAULT_FROM_EMAIL`: defaults to `iconicconnect99@gmail.com`.
 
 Set secrets in Railway's variable manager, not in source control. Do not add a

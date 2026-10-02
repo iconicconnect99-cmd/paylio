@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 from urllib.parse import urlsplit
 
 from django.contrib.auth import get_user_model
@@ -231,6 +232,26 @@ class CryptoDepositTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Payment email delivery is not configured")
         self.assertEqual(len(mail.outbox), 0)
+
+    @patch("core.crypto_views.send_mail", side_effect=TimeoutError("SMTP timed out"))
+    def test_receive_usdt_shows_error_when_smtp_times_out(self, send_mail_mock):
+        self.client.force_login(self.recipient)
+
+        with self.settings(
+            EMAIL_HOST_USER="iconicconnect99@gmail.com",
+            EMAIL_HOST_PASSWORD="test-app-password",
+        ):
+            response = self.client.post(
+                reverse("core:crypto-receive"),
+                {
+                    "sender_email": "sender@example.com",
+                    "amount": "10.00",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "could not send the payment page email")
+        send_mail_mock.assert_called_once()
 
     def test_payment_page_rejects_invalid_signed_request(self):
         response = self.client.get(
