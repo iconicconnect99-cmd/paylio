@@ -1,13 +1,16 @@
+import io
+import json
 from decimal import Decimal
 from unittest.mock import patch
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from django.contrib.auth import get_user_model
-from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
 from core.crypto_deposits import confirm_crypto_deposit, reject_crypto_deposit
+from core.resend import ResendEmailError, send_resend_email
 from core.models import (
     CryptoDeposit,
     CryptoPaymentGateway,
@@ -64,6 +67,65 @@ class TransactionHistoryTests(TestCase):
             notification_type="Credit Alert",
         )
         self.assertEqual(notification.amount, 10000)
+
+
+class ResendEmailTests(TestCase):
+    @patch("core.resend.urllib.request.urlopen")
+    def test_sends_html_and_text_email_using_resend_api(self, urlopen_mock):
+        urlopen_mock.return_value = io.BytesIO(b'{"id":"email-id"}')
+
+        with self.settings(
+            RESEND_API_KEY="re_test_key",
+            RESEND_FROM_EMAIL="Paylio <payments@example.com>",
+            RESEND_TIMEOUT=7,
+        ):
+            sent_count = send_resend_email(
+                "Payment page",
+                "sender@example.com",
+                "Plain text body",
+                "<p>HTML body</p>",
+            )
+
+        self.assertEqual(sent_count, 1)
+        request = urlopen_mock.call_args.args[0]
+        self.assertEqual(request.full_url, "https://api.resend.com/emails")
+        self.assertEqual(request.get_header("Authorization"), "Bearer re_test_key")
+        self.assertEqual(
+            json.loads(request.data),
+            {
+                "from": "Paylio <payments@example.com>",
+                "to": ["sender@example.com"],
+                "subject": "Payment page",
+                "text": "Plain text body",
+                "html": "<p>HTML body</p>",
+            },
+        )
+        urlopen_mock.assert_called_once_with(request, timeout=7)
+
+    @patch("core.resend.urllib.request.urlopen")
+    def test_reports_resend_rejections_without_exposing_api_key(self, urlopen_mock):
+        urlopen_mock.side_effect = HTTPError(
+            "https://api.resend.com/emails",
+            401,
+            "Unauthorized",
+            hdrs=None,
+            fp=io.BytesIO(b'{"message":"invalid key"}'),
+        )
+
+        with self.settings(
+            RESEND_API_KEY="re_test_key",
+            RESEND_FROM_EMAIL="payments@example.com",
+            RESEND_TIMEOUT=10,
+        ):
+            with self.assertRaisesRegex(ResendEmailError, "HTTP 401") as error:
+                send_resend_email(
+                    "Payment page",
+                    "sender@example.com",
+                    "text",
+                    "<p>html</p>",
+                )
+
+        self.assertNotIn("re_test_key", str(error.exception))
 
 
 class CryptoDepositTests(TestCase):
@@ -167,7 +229,7 @@ class CryptoDepositTests(TestCase):
         self.assertContains(response, "Sender email")
         self.assertContains(response, "Amount requested (USDT)")
         self.assertContains(response, "Email payment page to sender")
-        self.assertContains(response, "iconicconnect99@gmail.com")
+        self.assertContains(response, "emailed securely through Resend")
         self.assertTrue(PaymentLink.objects.filter(user=self.recipient).exists())
 
     def test_receive_usdt_page_explains_missing_wallet_instead_of_hiding_request_form(self):
@@ -192,29 +254,28 @@ class CryptoDepositTests(TestCase):
         self.client.force_login(self.recipient)
 
         with self.settings(
-            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-            EMAIL_HOST_USER="iconicconnect99@gmail.com",
-            EMAIL_HOST_PASSWORD="test-app-password",
-            DEFAULT_FROM_EMAIL="iconicconnect99@gmail.com",
+            RESEND_API_KEY="re_test_key",
+            RESEND_FROM_EMAIL="Paylio <payments@example.com>",
+            RESEND_TIMEOUT=10,
         ):
-            response = self.client.post(
-                reverse("core:crypto-receive"),
-                {
-                    "sender_email": "sender@example.com",
-                    "amount": "25.500000",
-                },
-                HTTP_X_FORWARDED_PROTO="https",
-                HTTP_HOST="testserver",
-            )
+            with patch("core.crypto_views.send_resend_email", return_value=1) as send_mock:
+                response = self.client.post(
+                    reverse("core:crypto-receive"),
+                    {
+                        "sender_email": "sender@example.com",
+                        "amount": "25.500000",
+                    },
+                    HTTP_X_FORWARDED_PROTO="https",
+                    HTTP_HOST="testserver",
+                )
 
         self.assertRedirects(response, reverse("core:crypto-receive"))
-        self.assertEqual(len(mail.outbox), 1)
-        sent_email = mail.outbox[0]
-        self.assertEqual(sent_email.from_email, "iconicconnect99@gmail.com")
-        self.assertEqual(sent_email.to, ["sender@example.com"])
-        self.assertIn("25.500000 USDT", sent_email.body)
+        send_mock.assert_called_once()
+        sent_email = send_mock.call_args.kwargs
+        self.assertEqual(sent_email["recipient"], "sender@example.com")
+        self.assertIn("25.500000 USDT", sent_email["text"])
         payment_url = next(
-            line for line in sent_email.body.splitlines() if line.startswith("https://")
+            line for line in sent_email["text"].splitlines() if line.startswith("https://")
         )
         parsed_url = urlsplit(payment_url)
         response = self.client.get(f"{parsed_url.path}?{parsed_url.query}")
@@ -232,29 +293,32 @@ class CryptoDepositTests(TestCase):
         self.client.force_login(self.recipient)
 
         with self.settings(
-            EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-            EMAIL_HOST_USER="",
-            EMAIL_HOST_PASSWORD="",
+            RESEND_API_KEY="",
+            RESEND_FROM_EMAIL="",
         ):
-            response = self.client.post(
-                reverse("core:crypto-receive"),
-                {
-                    "sender_email": "sender@example.com",
-                    "amount": "10.00",
-                },
-            )
+            with patch("core.crypto_views.send_resend_email") as send_mock:
+                response = self.client.post(
+                    reverse("core:crypto-receive"),
+                    {
+                        "sender_email": "sender@example.com",
+                        "amount": "10.00",
+                    },
+                )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Payment email delivery is not configured")
-        self.assertEqual(len(mail.outbox), 0)
+        self.assertContains(response, "Resend email delivery is not configured")
+        send_mock.assert_not_called()
 
-    @patch("core.crypto_views.send_mail", side_effect=TimeoutError("SMTP timed out"))
-    def test_receive_usdt_shows_error_when_smtp_times_out(self, send_mail_mock):
+    @patch(
+        "core.crypto_views.send_resend_email",
+        side_effect=TimeoutError("Resend timed out"),
+    )
+    def test_receive_usdt_shows_error_when_resend_times_out(self, send_email_mock):
         self.client.force_login(self.recipient)
 
         with self.settings(
-            EMAIL_HOST_USER="iconicconnect99@gmail.com",
-            EMAIL_HOST_PASSWORD="test-app-password",
+            RESEND_API_KEY="re_test_key",
+            RESEND_FROM_EMAIL="payments@example.com",
         ):
             response = self.client.post(
                 reverse("core:crypto-receive"),
@@ -267,7 +331,7 @@ class CryptoDepositTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "could not send the payment page email")
         self.assertNotContains(response, "Check the email address")
-        send_mail_mock.assert_called_once()
+        send_email_mock.assert_called_once()
 
     def test_payment_page_rejects_invalid_signed_request(self):
         response = self.client.get(

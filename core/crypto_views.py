@@ -1,5 +1,4 @@
 import logging
-import smtplib
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
@@ -7,7 +6,6 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.core import signing
-from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,6 +15,7 @@ from django.urls import reverse
 from account.models import KYC
 from core.crypto_forms import CryptoDepositForm, CryptoPaymentRequestForm
 from core.models import CryptoDeposit, CryptoPaymentGateway, CryptoWallet, PaymentLink
+from core.resend import send_resend_email
 
 logger = logging.getLogger(__name__)
 PAYMENT_REQUEST_SALT = "core.crypto-payment-request"
@@ -45,10 +44,10 @@ def receive_usdt(request):
                 request,
                 "USDT payments are not available until a receiving wallet is configured.",
             )
-        elif not settings.EMAIL_HOST_USER or not settings.EMAIL_HOST_PASSWORD:
+        elif not settings.RESEND_API_KEY or not settings.RESEND_FROM_EMAIL:
             messages.error(
                 request,
-                "Payment email delivery is not configured. Please contact Paylio support.",
+                "Resend email delivery is not configured. Please contact Paylio support.",
             )
         else:
             signed_request = signing.dumps(
@@ -65,22 +64,20 @@ def receive_usdt(request):
                 "recipient_name": _recipient_name(request.user),
             }
             try:
-                email_count = send_mail(
+                email_count = send_resend_email(
                     subject="Your Paylio USDT payment page",
-                    message=render_to_string(
+                    text=render_to_string(
                         "crypto/payment-request-email.txt",
                         email_context,
                     ),
-                    from_email=settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[form.cleaned_data["sender_email"]],
-                    html_message=render_to_string(
+                    recipient=form.cleaned_data["sender_email"],
+                    html=render_to_string(
                         "crypto/payment-request-email.html",
                         email_context,
                     ),
-                    fail_silently=False,
                 )
-            except (OSError, smtplib.SMTPException):
-                logger.exception("Could not send a USDT payment request email.")
+            except OSError:
+                logger.exception("Could not send a USDT payment request through Resend.")
                 messages.error(
                     request,
                     "Paylio could not send the payment page email. Please try again later or contact support.",
@@ -107,7 +104,7 @@ def receive_usdt(request):
             "recipient_name": _recipient_name(request.user),
             "gateways": gateways,
             "wallet": wallet,
-            "payment_email_from": settings.DEFAULT_FROM_EMAIL,
+            "payment_email_from": settings.RESEND_FROM_EMAIL,
             "deposits": payment_link.deposits.select_related("transaction"),
         },
     )

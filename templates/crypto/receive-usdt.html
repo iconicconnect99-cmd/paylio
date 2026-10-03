@@ -40,7 +40,7 @@
                         </div>
                         <button class="btn btn-primary w-100" type="submit" {% if not wallet %}disabled{% endif %}>Email payment page to sender</button>
                     </form>
-                    <p class="small mt-3 mb-0">The payment email is sent from {{ payment_email_from }}. Only request payment after confirming the amount with the sender.</p>
+                    <p class="small mt-3 mb-0">The payment page is emailed securely through Resend{% if payment_email_from %} from {{ payment_email_from }}{% endif %}. Only request payment after confirming the amount with the sender.</p>
                 </div>
             </section>
         </div>
